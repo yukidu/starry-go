@@ -214,6 +214,9 @@ export default {
           const mapping=await env.DB.prepare('SELECT starry_user_id FROM starry_identities WHERE local_user_id=? LIMIT 1')
             .bind(user.id).first<{starry_user_id:string}>().catch(()=>null);
           if (!mapping?.starry_user_id) {
+            if (url.pathname === '/') {
+              return new Response('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><main style="max-width:440px;margin:14vh auto;padding:24px;text-align:center;font-family:system-ui"><h1>請重新登入 Starry ID</h1><p>為了確保會員身分安全，請重新登入一次。</p><a href="https://id.starry.phd/auth/gostarry">使用繁星通行證登入</a></main></html>',{status:401,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+            }
             return new Response(JSON.stringify({error:'請重新登入 Starry ID',code:'CENTRAL_LOGIN_REQUIRED'}),{
               status:401,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
             });
