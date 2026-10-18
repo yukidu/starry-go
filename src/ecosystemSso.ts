@@ -1,5 +1,7 @@
 import appWorker from './routerV9';
 import type { Env } from './types';
+import { getUserFromRequest } from './db';
+import { checkCentralAppEntitlement } from './centralAppAccess';
 
 const SSO_JS = String.raw`(() => {
   const CLIENT_ID='661055525630-ndcq5gtr16h7rqqprlqqkkvineea87lc.apps.googleusercontent.com';
@@ -203,6 +205,33 @@ export default {
       return new Response(SSO_CSS, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     }
 
+    // Only private member screens/API require membership. Public short-link redirects
+    // and visitor routes continue working without a central entitlement lookup.
+    if (url.pathname === '/' || url.pathname.startsWith('/api/')) {
+      if (url.pathname !== '/api/logout') {
+        const user=await getUserFromRequest(request,env);
+        if (user) {
+          const mapping=await env.DB.prepare('SELECT starry_user_id FROM starry_identities WHERE local_user_id=? LIMIT 1')
+            .bind(user.id).first<{starry_user_id:string}>().catch(()=>null);
+          if (!mapping?.starry_user_id) {
+            return new Response(JSON.stringify({error:'請重新登入 Starry ID',code:'CENTRAL_LOGIN_REQUIRED'}),{
+              status:401,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
+            });
+          }
+          let allowed;
+          try {allowed=await checkCentralAppEntitlement(env.STARRY_ID_DB,mapping.starry_user_id,'gostarry');}
+          catch {return new Response('會員權限驗證暫時無法使用',{status:503,headers:{'Cache-Control':'no-store'}});}
+          if (!allowed.allowed) {
+            if (url.pathname === '/') {
+              return new Response('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>使用權限</title><main style="max-width:440px;margin:14vh auto;padding:24px;text-align:center;font-family:system-ui"><h1>您沒有使用權限</h1><p>請聯絡繁星管理員開通繁星任意門。</p><a href="https://id.starry.phd/">前往 Starry ID</a></main></html>',{status:403,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+            }
+            return new Response(JSON.stringify({error:'您沒有使用權限',code:'APP_ACCESS_DENIED'}),{
+              status:403,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
+            });
+          }
+        }
+      }
+    }
     return injectSso(await appWorker.fetch(request, env, ctx));
   }
 };
