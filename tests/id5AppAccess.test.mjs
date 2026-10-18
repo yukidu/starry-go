@@ -15,7 +15,7 @@ test('central D1 grants override legacy and new members need approval',()=>{
 test('Go checks fresh and existing member sessions without blocking public shortlinks',()=>{
   assert.match(sso,/checkCentralAppEntitlement\(env\.STARRY_ID_DB,member\.id,APP_ID\)/);
   assert.match(wrapper,/getUserFromRequest\(request,env\)/);
-  assert.match(wrapper,/url\.pathname==='\/' \|\| url\.pathname\.startsWith\('\/api\/'\)/);
+  assert.match(wrapper,/url\.pathname\s*===\s*'\/'\s*\|\|\s*url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(wrapper,/APP_ACCESS_DENIED/);
   assert.match(wrapper,/您沒有使用權限/);
   assert.doesNotMatch(wrapper,/path\.startsWith\('\/s\/'\)/);
