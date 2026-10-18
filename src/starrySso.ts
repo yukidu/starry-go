@@ -1,5 +1,6 @@
 import type { Env, User } from "./types";
 import { createSession } from "./db";
+import { checkCentralAppEntitlement } from "./centralAppAccess";
 import { cookie, sha256 } from "./security";
 
 const STARRY_ID_ORIGIN = "https://id.starry.phd";
@@ -315,6 +316,8 @@ export async function finishStarryAuth(request: Request, env: Env): Promise<Resp
     if (!member || member.status !== "active" || member.membershipStatus !== "active") {
       return Response.redirect(`${url.origin}/?starry=error`, 302);
     }
+    const access = await checkCentralAppEntitlement(env.STARRY_ID_DB,member.id,APP_ID);
+    if (!access.allowed) return Response.redirect(`${url.origin}/?starry=denied`,302);
 
     const localUser = await resolveLocalUser(env, member);
     await ensureCentralPublicCard(env, member.id);
